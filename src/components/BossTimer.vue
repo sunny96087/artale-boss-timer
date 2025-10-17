@@ -23,6 +23,7 @@ import {
   CheckBadgeIcon,
   FireIcon,
   BoltIcon,
+  EyeIcon,
 } from "@heroicons/vue/24/outline";
 
 // ===== 清除記錄(本地端所有記錄) =====
@@ -76,6 +77,9 @@ const addRecordForm = ref({
   loot: "",
 });
 
+// 頻道輸入框的 ref
+const channelInputRef = ref(null);
+
 // 自定義下拉選單狀態
 const isDropdownOpen = ref(false);
 const dropdownSearch = ref("");
@@ -115,6 +119,8 @@ const getBossImage = (bossId) => {
 };
 
 const openAddRecordModal = () => {
+  console.log("openAddRecordModal called, current boss:", addRecordForm.value.boss);
+  
   if (!addRecordForm.value.boss) {
     alert("請先選擇一個 BOSS");
     return;
@@ -128,13 +134,23 @@ const openAddRecordModal = () => {
   const timeString = `${hours}:${minutes}`;
 
   // 保留已选择的 boss，只更新其他字段
+  const currentBoss = addRecordForm.value.boss;
   addRecordForm.value = {
-    boss: addRecordForm.value.boss, // 保留已选择的 boss
+    boss: currentBoss, // 保留已选择的 boss
     channel: "",
     killTime: timeString,
     killLocation: "",
     loot: "",
   };
+
+  console.log("After setting, boss is:", addRecordForm.value.boss);
+
+  // 等待 DOM 更新後，自動 focus 到頻道輸入框
+  setTimeout(() => {
+    if (channelInputRef.value) {
+      channelInputRef.value.focus();
+    }
+  }, 100);
 };
 
 const closeAddRecordModal = () => {
@@ -184,19 +200,22 @@ const addRecord = () => {
     loot: addRecordForm.value.loot,
     respawnMinutesMin: bossInfo.respawnMinutesMin,
     respawnMinutesMax: bossInfo.respawnMinutesMax,
+    checkPoints: [], // 踩點記錄
   };
 
   if (existingRecordIndex !== -1) {
-    // 如果存在，更新該記錄（保留原有的 id）
+    // 如果存在，更新該記錄（保留原有的 id 和踩點記錄）
     killRecords.value[existingRecordIndex] = {
       ...recordData,
       id: killRecords.value[existingRecordIndex].id,
+      checkPoints: killRecords.value[existingRecordIndex].checkPoints || [],
     };
   } else {
     // 如果不存在，新增記錄
     const newRecord = {
       ...recordData,
       id: Date.now(),
+      checkPoints: [],
     };
     killRecords.value.unshift(newRecord); // 新記錄放在最前面
   }
@@ -249,6 +268,7 @@ const reAddRecord = (record) => {
     loot: record.loot || "",
     respawnMinutesMin: bossInfo.respawnMinutesMin,
     respawnMinutesMax: bossInfo.respawnMinutesMax,
+    checkPoints: [], // 重置踩點記錄
   };
 
   if (existingRecordIndex !== -1) {
@@ -256,17 +276,78 @@ const reAddRecord = (record) => {
     killRecords.value[existingRecordIndex] = {
       ...recordData,
       id: killRecords.value[existingRecordIndex].id,
+      checkPoints: [], // 重置踩點記錄
     };
   } else {
     // 如果不存在，新增記錄
     const newRecord = {
       ...recordData,
       id: Date.now(),
+      checkPoints: [],
     };
     killRecords.value.unshift(newRecord); // 新記錄放在最前面
   }
 
   saveRecords();
+};
+
+// ===== 踩點記錄功能 =====
+// 添加踩點記錄
+const addCheckPoint = (record) => {
+  if (!record.checkPoints) {
+    record.checkPoints = [];
+  }
+
+  const checkPoint = {
+    time: new Date().toISOString(),
+    note: "已查看，沒有 BOSS",
+  };
+
+  record.checkPoints.push(checkPoint);
+  saveRecords();
+};
+
+// 刪除單個踩點記錄
+const deleteCheckPoint = (record, index) => {
+  if (!record.checkPoints) return;
+
+  // 反轉索引（因為顯示時是反轉的）
+  const actualIndex = record.checkPoints.length - 1 - index;
+  record.checkPoints.splice(actualIndex, 1);
+  saveRecords();
+};
+
+// 獲取最近的踩點時間
+const getLatestCheckPoint = (record) => {
+  if (!record.checkPoints || record.checkPoints.length === 0) {
+    return null;
+  }
+  return record.checkPoints[record.checkPoints.length - 1];
+};
+
+// 格式化踩點時間顯示
+const formatCheckPointTime = (checkPoint) => {
+  if (!checkPoint) return "";
+  const time = new Date(checkPoint.time);
+  const now = new Date();
+
+  // 獲取 HH:MM 格式
+  const hours = String(time.getHours()).padStart(2, "0");
+  const minutes = String(time.getMinutes()).padStart(2, "0");
+  const timeStr = `${hours}:${minutes}`;
+
+  // 計算距離現在多久
+  const diffMs = now - time;
+  const diffMins = Math.floor(diffMs / 60000);
+
+  if (diffMins < 1) {
+    return `剛剛踩點`;
+  } else if (diffMins < 60) {
+    return `${diffMins} 分鐘前踩點`;
+  } else {
+    const diffHours = Math.floor(diffMins / 60);
+    return `${diffHours} 小時前踩點`;
+  }
 };
 
 // BOSS 資料（保留原有的，暫時不刪除以免影響其他功能）
@@ -296,6 +377,24 @@ const closeDropdownOnClickOutside = (event) => {
   }
 };
 
+// 全局鍵盤快捷鍵
+const handleKeyboardShortcut = (event) => {
+  // 如果正在輸入框中，不觸發快捷鍵
+  const target = event.target;
+  if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+    return;
+  }
+
+  // 按 "+" 或 "=" 鍵打開新增彈窗（+ 需要按 Shift，= 不需要）
+  if (event.key === '+' || event.key === '=') {
+    event.preventDefault();
+    
+    if (!isAddRecordModalOpen.value) {
+      openAddRecordModal();
+    }
+  }
+};
+
 // 載入儲存的資料
 onMounted(() => {
   loadRecords();
@@ -316,6 +415,9 @@ onMounted(() => {
 
   // 監聽點擊事件來關閉下拉選單
   document.addEventListener("click", closeDropdownOnClickOutside);
+  
+  // 監聽鍵盤快捷鍵
+  document.addEventListener("keydown", handleKeyboardShortcut);
 });
 
 onUnmounted(() => {
@@ -324,6 +426,7 @@ onUnmounted(() => {
   }
   // 清除事件監聽器
   document.removeEventListener("click", closeDropdownOnClickOutside);
+  document.removeEventListener("keydown", handleKeyboardShortcut);
 });
 
 // 儲存資料（保留原有的）
@@ -701,6 +804,7 @@ const formatCountdownTime = (seconds) => {
                 頻道 <span class="text-red-600">*</span>
               </label>
               <input
+                ref="channelInputRef"
                 type="number"
                 min="1"
                 max="9999"
@@ -708,6 +812,7 @@ const formatCountdownTime = (seconds) => {
                 class="bg-gray-700 text-white px-4 py-2 rounded-md w-full"
                 placeholder="例如: 1111"
                 v-model="addRecordForm.channel"
+                @keyup.enter="addRecord"
               />
             </div>
 
@@ -814,25 +919,63 @@ const formatCountdownTime = (seconds) => {
                 </div>
 
                 <!-- 主要資訊 -->
-                <div class="flex-1 flex justify-between items-center min-w-0">
-                  <!-- BOSS 名稱 & 頻道 -->
-                  <div class="flex items-center gap-2">
-                    <h3 class="text-md text-gray-200">
-                      {{ record.bossName }}
-                    </h3>
-                    <span class="text-gray-400">|</span>
-                    <span class="text-gray-400 text-sm font-medium">
-                      頻道 {{ record.channel }}
-                    </span>
+                <div class="flex-1 flex flex-col min-w-0">
+                  <div class="flex items-center gap-3 justify-between mb-1">
+                    <!-- BOSS 名稱 & 頻道 -->
+                    <div class="flex items-center gap-2">
+                      <h3 class="text-md text-gray-200">
+                        {{ record.bossName }}
+                      </h3>
+                      <span class="text-gray-400">|</span>
+                      <span class="text-gray-400 text-sm font-medium">
+                        頻道 {{ record.channel }}
+                      </span>
+                    </div>
+
+                    <!-- 時間資訊 -->
+                    <div class="text-sm">
+                      <div class="flex items-center gap-1">
+                        <ClockIcon class="w-3.5 h-3.5 text-blue-400" />
+                        <span class="text-gray-200">
+                          {{ formatDisplayTime(record.respawnTimeMin) }} ~
+                          {{ formatDisplayTime(record.respawnTimeMax) }}
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
-                  <!-- 時間資訊 -->
-                  <div class="text-sm">
-                    <div class="flex items-center gap-1">
-                      <ClockIcon class="w-3.5 h-3.5 text-blue-400" />
-                      <span class="text-gray-200">
-                        {{ formatDisplayTime(record.respawnTimeMin) }} ~
-                        {{ formatDisplayTime(record.respawnTimeMax) }}
+                  <!-- 踩點記錄顯示 -->
+                  <div
+                    v-if="record.checkPoints && record.checkPoints.length > 0"
+                    class="text-xs text-gray-400"
+                  >
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <EyeIcon class="w-3 h-3 flex-shrink-0" />
+                      <span>{{
+                        formatCheckPointTime(getLatestCheckPoint(record))
+                      }}</span>
+                      <span
+                        v-for="(checkPoint, index) in [
+                          ...record.checkPoints,
+                        ].reverse()"
+                        :key="index"
+                        class="group relative text-gray-400 text-xs bg-gray-900/80 px-1 py-0.5 rounded cursor-pointer transition-colors"
+                        @click.stop="deleteCheckPoint(record, index)"
+                        title="點擊刪除此踩點記錄"
+                      >
+                        {{
+                          new Date(checkPoint.time).toLocaleTimeString(
+                            "zh-TW",
+                            {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: false,
+                            }
+                          )
+                        }}
+                        <XMarkIcon
+                          class="w-5 h-5 font-bold absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        />
                       </span>
                     </div>
                   </div>
@@ -974,6 +1117,42 @@ const formatCountdownTime = (seconds) => {
                       </span>
                     </div>
                   </div>
+
+                  <!-- 踩點記錄顯示 -->
+                  <div
+                    v-if="record.checkPoints && record.checkPoints.length > 0"
+                    class="text-xs text-gray-400"
+                  >
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <EyeIcon class="w-3 h-3 flex-shrink-0" />
+                      <span>{{
+                        formatCheckPointTime(getLatestCheckPoint(record))
+                      }}</span>
+                      <span
+                        v-for="(checkPoint, index) in [
+                          ...record.checkPoints,
+                        ].reverse()"
+                        :key="index"
+                        class="group relative text-gray-400 text-xs bg-gray-900/80 px-1 py-0.5 rounded cursor-pointer transition-colors"
+                        @click.stop="deleteCheckPoint(record, index)"
+                        title="點擊刪除此踩點記錄"
+                      >
+                        {{
+                          new Date(checkPoint.time).toLocaleTimeString(
+                            "zh-TW",
+                            {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: false,
+                            }
+                          )
+                        }}
+                        <XMarkIcon
+                          class="w-5 h-5 font-bold absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        />
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 <!-- 倒數計時 & 操作按鈕 -->
@@ -1017,6 +1196,18 @@ const formatCountdownTime = (seconds) => {
                       {{ getRecordCountdown(record).timeText }}
                     </div>
                   </div>
+
+                  <!-- 踩點紀錄 -->
+
+                  <!-- 踩點按鈕 -->
+                  <button
+                    @click="addCheckPoint(record)"
+                    class="border border-blue-600 hover:bg-blue-700 hover:text-white text-blue-600 p-2 rounded text-sm transition"
+                    title="踩點記錄（已查看但沒有 BOSS）"
+                  >
+                    <!-- 眼睛 icon -->
+                    <EyeIcon class="w-5 h-5" />
+                  </button>
 
                   <!-- 成功擊殺 重新計時 -->
                   <button
@@ -1153,6 +1344,10 @@ const formatCountdownTime = (seconds) => {
 
     <!-- 頁尾 -->
     <div class="text-center text-white/50 text-sm min-h-[88px] py-4">
+      <p>快捷鍵：+ 或 = 打開新增彈窗，輸入完頻道後按 Enter 確認新增</p>
+      <p>眼睛圖示用法：已查看但沒有 BOSS，點擊後會新增踩點記錄，踩點時間點擊可以刪除。</p>
+      <p>教學還在生產中，請見諒 🫡</p>
+      <br>
       <p>資料會自動儲存在瀏覽器本地</p>
     </div>
   </div>
