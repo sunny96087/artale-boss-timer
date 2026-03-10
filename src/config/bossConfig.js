@@ -451,6 +451,109 @@ export const bossConfig = [
     description: "3小時~5小時重生",
     commonLoots: [],
   },
+
+  {
+    id: "samurai_king",
+    name: "竹刀武士",
+    respawnMinutesMin: 113,
+    respawnMinutesMax: 128,
+    needLocation: false,
+    location: ["日本 古代神社：暗夜松林"],
+    description: "1小時53分~2小時8分重生",
+    commonLoots: [],
+  },
+
+  {
+    id: "blue_mushroom_king",
+    name: "藍色蘑菇王",
+    respawnMinutesMin: 720,
+    respawnMinutesMax: 1680,
+    needLocation: false,
+    location: ["日本 古代神社：天皇殿堂"],
+    description: "12小時~28小時重生",
+    commonLoots: [],
+  },
+
+  {
+    id: "fire_dragon_king",
+    name: "噴火龍",
+    respawnMinutesMin: 60,
+    respawnMinutesMax: 60,
+    needLocation: false,
+    location: ["神木村：噴火龍的森林"],
+    description: "1小時重生",
+    commonLoots: [],
+  },
+
+  {
+    id: "gryphon_king",
+    name: "格瑞芬多",
+    respawnMinutesMin: 60,
+    respawnMinutesMax: 60,
+    needLocation: false,
+    location: ["神木村：格瑞芬多森林"],
+    description: "1小時重生",
+    commonLoots: [],
+  },
+
+  {
+    id: "ice_dragon_king",
+    name: "寒霜冰龍",
+    respawnMinutesMin: 240,
+    respawnMinutesMax: 720,
+    needLocation: false,
+    location: ["神木村：深山凶屋"],
+    description: "4小時~12小時重生",
+    commonLoots: [],
+  },
+
+  {
+    id: "cactus_king",
+    name: "仙人長老",
+    respawnMinutesMin: 68,
+    respawnMinutesMax: 90,
+    needLocation: false,
+    location: ["納希綠洲城：仙人掌沙漠2"],
+    description: "1小時8分~1小時30分重生",
+    commonLoots: [],
+  },
+
+  {
+    id: "red_blue_king",
+    name: "紅藍雙怪",
+    respawnMinutesMin: 113,
+    respawnMinutesMax: 125,
+    needLocation: true,
+    location: [
+      "瑪迦提亞城：研究所B-1區",
+      "瑪迦提亞城：研究所B-3區",
+      "瑪迦提亞城：研究所C-2區",
+    ],
+    description: "1小時53分~2小時5分重生",
+    commonLoots: [],
+  },
+
+  {
+    id: "automatic_security_system",
+    name: "自動警備系統",
+    respawnMinutesMin: 158,
+    respawnMinutesMax: 173,
+    needLocation: false,
+    location: ["瑪迦提亞城：研究所C-3區"],
+    description: "2小時38分~2小時53分重生",
+    commonLoots: [],
+  },
+
+  {
+    id: "diet_and_loyd_king",
+    name: "迪特和洛伊德",
+    respawnMinutesMin: 150,
+    respawnMinutesMax: 165,
+    needLocation: false,
+    location: ["瑪迦提亞城：研究所202號房"],
+    description: "2小時30分~2小時45分重生",
+    commonLoots: [],
+  },
 ];
 
 // 獲取所有掉落物列表（用於自動完成提示）
