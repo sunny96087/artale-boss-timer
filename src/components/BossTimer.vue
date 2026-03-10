@@ -84,6 +84,44 @@ const channelInputRef = ref(null);
 const isDropdownOpen = ref(false);
 const dropdownSearch = ref("");
 
+// 擊殺時間的「時」「分」拆開給 24 小時制輸入用
+const killTimeHour = computed(() => {
+  const t = addRecordForm.value.killTime;
+  if (!t || !t.includes(":")) return "";
+  return t.split(":")[0] || "";
+});
+const killTimeMinute = computed(() => {
+  const t = addRecordForm.value.killTime;
+  if (!t || !t.includes(":")) return "";
+  return t.split(":")[1] || "";
+});
+const onKillTimeHourInput = (e) => {
+  const v = e.target.value;
+  const m = (addRecordForm.value.killTime && addRecordForm.value.killTime.split(":")[1]) || "00";
+  if (v === "") {
+    addRecordForm.value.killTime = `00:${m}`;
+    return;
+  }
+  const n = parseInt(v, 10);
+  if (!Number.isNaN(n)) {
+    const h = String(Math.min(23, Math.max(0, n))).padStart(2, "0");
+    addRecordForm.value.killTime = `${h}:${m}`;
+  }
+};
+const onKillTimeMinuteInput = (e) => {
+  const v = e.target.value;
+  const h = (addRecordForm.value.killTime && addRecordForm.value.killTime.split(":")[0]) || "00";
+  if (v === "") {
+    addRecordForm.value.killTime = `${h}:00`;
+    return;
+  }
+  const n = parseInt(v, 10);
+  if (!Number.isNaN(n)) {
+    const m = String(Math.min(59, Math.max(0, n))).padStart(2, "0");
+    addRecordForm.value.killTime = `${h}:${m}`;
+  }
+};
+
 // 根據選擇的 BOSS 判斷是否需要顯示地點欄位
 const selectedBossConfig = computed(() => {
   if (!addRecordForm.value.boss) return null;
@@ -169,10 +207,16 @@ const addRecord = () => {
 
   const bossInfo = bossConfig.find((b) => b.id === addRecordForm.value.boss);
 
-  // 將時間字串轉換為完整的日期時間
-  const [hours, minutes] = addRecordForm.value.killTime.split(":");
+  // 將時間字串轉換為完整的日期時間（格式須為 HH:mm，與擊殺時間 24 小時制輸入一致）
+  const timeParts = addRecordForm.value.killTime.split(":");
+  const hours = parseInt(timeParts[0], 10);
+  const minutes = parseInt(timeParts[1], 10);
+  if (timeParts.length !== 2 || Number.isNaN(hours) || Number.isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    alert("擊殺時間格式不正確，請使用 24 小時制（時:分）");
+    return;
+  }
   const killDateTime = new Date();
-  killDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+  killDateTime.setHours(hours, minutes, 0, 0);
 
   // 計算重生時間區間（最早和最晚）
   const respawnDateTimeMin = new Date(
@@ -817,15 +861,31 @@ const formatCountdownTime = (seconds) => {
             </div>
 
             <div>
-              <label for="killTime" class="text-white block mb-2">
+              <label class="text-white block mb-2">
                 擊殺時間 <span class="text-red-600">*</span>
+                <span class="text-gray-400 text-sm font-normal">（24 小時制）</span>
               </label>
-              <input
-                type="time"
-                id="killTime"
-                class="bg-gray-700 text-white px-4 py-2 rounded-md w-full"
-                v-model="addRecordForm.killTime"
-              />
+              <div class="flex gap-2 items-center">
+                <input
+                  type="number"
+                  min="0"
+                  max="23"
+                  class="bg-gray-700 text-white px-4 py-2 rounded-md flex-1 text-center"
+                  placeholder="時"
+                  :value="killTimeHour"
+                  @input="onKillTimeHourInput"
+                />
+                <span class="text-gray-400">:</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="59"
+                  class="bg-gray-700 text-white px-4 py-2 rounded-md flex-1 text-center"
+                  placeholder="分"
+                  :value="killTimeMinute"
+                  @input="onKillTimeMinuteInput"
+                />
+              </div>
             </div>
 
             <!-- <div v-if="selectedBossConfig?.needLocation">
