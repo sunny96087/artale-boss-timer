@@ -597,6 +597,15 @@ const deleteRecord = (recordId) => {
   saveRecords();
 };
 
+// 格式化重生時間區間：若最早與最晚相同（固定重生時間）只顯示一個時間
+const formatRespawnTimeRange = (record) => {
+  const minT = new Date(record.respawnTimeMin).getTime();
+  const maxT = new Date(record.respawnTimeMax).getTime();
+  const str = formatDisplayTime(record.respawnTimeMin);
+  if (minT === maxT) return str;
+  return `${str} ~ ${formatDisplayTime(record.respawnTimeMax)}`;
+};
+
 // 格式化顯示時間
 const formatDisplayTime = (isoString) => {
   const date = new Date(isoString);
@@ -997,8 +1006,7 @@ const formatCountdownTime = (seconds) => {
                       <div class="flex items-center gap-1">
                         <ClockIcon class="w-3.5 h-3.5 text-blue-400" />
                         <span class="text-gray-200">
-                          {{ formatDisplayTime(record.respawnTimeMin) }} ~
-                          {{ formatDisplayTime(record.respawnTimeMax) }}
+                          {{ formatRespawnTimeRange(record) }}
                         </span>
                       </div>
                     </div>
@@ -1152,8 +1160,7 @@ const formatCountdownTime = (seconds) => {
                       <div class="flex items-center gap-1">
                         <ClockIcon class="w-3.5 h-3.5 text-blue-400" />
                         <span class="text-gray-200">
-                          {{ formatDisplayTime(record.respawnTimeMin) }} ~
-                          {{ formatDisplayTime(record.respawnTimeMax) }}
+                          {{ formatRespawnTimeRange(record) }}
                         </span>
                       </div>
                     </div>
@@ -1337,8 +1344,7 @@ const formatCountdownTime = (seconds) => {
                     <div class="flex items-center gap-1">
                       <ClockIcon class="w-3.5 h-3.5 text-blue-400" />
                       <span class="text-gray-200">
-                        {{ formatDisplayTime(record.respawnTimeMin) }} ~
-                        {{ formatDisplayTime(record.respawnTimeMax) }}
+                        {{ formatRespawnTimeRange(record) }}
                       </span>
                     </div>
                   </div>
