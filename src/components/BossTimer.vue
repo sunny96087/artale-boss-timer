@@ -413,6 +413,97 @@ const loadRecords = () => {
   }
 };
 
+// ===== 分享 / 匯入記錄 =====
+const isImportModalOpen = ref(false);
+const importPasteText = ref("");
+
+// 將記錄編碼為可分享字串（UTF-8 安全 base64）
+const encodeShareData = (records) => {
+  const json = JSON.stringify(records);
+  return btoa(unescape(encodeURIComponent(json)));
+};
+
+// 解碼分享字串（先嘗試 base64，失敗則當作純 JSON）
+const decodeShareData = (raw) => {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  let jsonStr = trimmed;
+  try {
+    if (/^[A-Za-z0-9+/=]+$/.test(trimmed)) {
+      jsonStr = decodeURIComponent(escape(atob(trimmed)));
+    }
+  } catch (_) {}
+  try {
+    return JSON.parse(jsonStr);
+  } catch (_) {
+    return null;
+  }
+};
+
+// 分享：複製到剪貼簿
+const shareRecords = async () => {
+  if (killRecords.value.length === 0) {
+    alert("目前沒有記錄可分享");
+    return;
+  }
+  const encoded = encodeShareData(killRecords.value);
+  try {
+    await navigator.clipboard.writeText(encoded);
+    alert("已複製到剪貼簿！可貼上傳給他人，對方用「匯入分享資料」即可一鍵匯入。");
+  } catch (e) {
+    alert("複製失敗，請手動複製：\n\n" + encoded);
+  }
+};
+
+// 匯入時合併：同一 BOSS + 頻道只保留較新的擊殺記錄，其餘加總
+const mergeImportedRecords = (existing, imported) => {
+  if (!Array.isArray(imported)) return existing;
+  const byKey = {};
+  const key = (r) => `${r.bossId}_${r.channel}`;
+  existing.forEach((r) => {
+    byKey[key(r)] = { ...r };
+  });
+  imported.forEach((r) => {
+    const k = key(r);
+    const existingRecord = byKey[k];
+    if (!existingRecord) {
+      byKey[k] = { ...r, id: r.id ?? Date.now() + Math.random() };
+    } else {
+      const existingTime = new Date(existingRecord.killTime).getTime();
+      const importedTime = new Date(r.killTime).getTime();
+      if (importedTime > existingTime) {
+        byKey[k] = { ...r, id: existingRecord.id };
+      }
+    }
+  });
+  const list = Object.values(byKey);
+  list.sort((a, b) => new Date(a.respawnTimeMin).getTime() - new Date(b.respawnTimeMin).getTime());
+  return list;
+};
+
+const openImportModal = () => {
+  importPasteText.value = "";
+  isImportModalOpen.value = true;
+};
+
+const closeImportModal = () => {
+  isImportModalOpen.value = false;
+  importPasteText.value = "";
+};
+
+const doImport = () => {
+  const parsed = decodeShareData(importPasteText.value);
+  if (!parsed || !Array.isArray(parsed) || parsed.length === 0) {
+    alert("無法辨識的資料，請貼上他人分享的完整內容。");
+    return;
+  }
+  const merged = mergeImportedRecords(killRecords.value, parsed);
+  killRecords.value = merged;
+  saveRecords();
+  closeImportModal();
+  alert(`已匯入並合併，目前共 ${merged.length} 筆記錄。`);
+};
+
 // 點擊外部關閉下拉選單
 const closeDropdownOnClickOutside = (event) => {
   const dropdown = document.querySelector(".relative.w-96");
@@ -701,7 +792,23 @@ const formatCountdownTime = (seconds) => {
     <!-- 標題 & 功能按鈕 (清除、分享、使用說明) -->
     <div class="flex justify-between items-center mb-8">
       <h1 class="text-2xl font-bold text-white">2魚 の Artale 打王小工具</h1>
-      <div class="flex space-x-4">
+      <div class="flex flex-wrap gap-2">
+        <button
+          class="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-md flex items-center gap-2 transition"
+          @click="shareRecords"
+          title="複製目前所有記錄，可貼上分享給他人"
+        >
+          <ShareIcon class="w-4 h-4" />
+          分享資料
+        </button>
+        <button
+          class="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-md flex items-center gap-2 transition"
+          @click="openImportModal"
+          title="貼上他人分享的資料，一鍵匯入並與現有記錄合併"
+        >
+          <DocumentTextIcon class="w-4 h-4" />
+          匯入分享資料
+        </button>
         <button
           class="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-md flex items-center gap-2 transition"
           @click="clearRecordsLocal"
@@ -943,6 +1050,39 @@ const formatCountdownTime = (seconds) => {
               </button>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 匯入分享資料彈窗 -->
+    <div
+      v-if="isImportModalOpen"
+      class="fixed inset-0 z-30 flex items-center justify-center bg-black/60 p-4"
+      @click.self="closeImportModal"
+    >
+      <div class="bg-gray-800 rounded-xl p-6 w-full max-w-lg shadow-xl">
+        <h3 class="text-lg font-bold text-white mb-2">匯入分享資料</h3>
+        <p class="text-gray-400 text-sm mb-3">
+          貼上他人分享的資料，將與您目前的記錄合併；同一 BOSS＋頻道會保留較新的擊殺時間。
+        </p>
+        <textarea
+          v-model="importPasteText"
+          class="w-full h-40 bg-gray-700 text-white rounded-lg px-3 py-2 text-sm font-mono resize-none focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          placeholder="請貼上他人分享的內容（整段複製）"
+        />
+        <div class="flex gap-2 mt-4">
+          <button
+            class="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md transition"
+            @click="closeImportModal"
+          >
+            取消
+          </button>
+          <button
+            class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition"
+            @click="doImport"
+          >
+            匯入並合併
+          </button>
         </div>
       </div>
     </div>
