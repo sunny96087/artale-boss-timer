@@ -565,7 +565,6 @@ export const bossConfig = [
     description: "2小時~2小時15分重生",
     commonLoots: [],
   },
-  奇美拉
 ];
 
 // 獲取所有掉落物列表（用於自動完成提示）
