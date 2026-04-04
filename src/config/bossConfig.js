@@ -554,6 +554,18 @@ export const bossConfig = [
     description: "2小時30分~2小時45分重生",
     commonLoots: [],
   },
+
+  {
+    id: "chimera_king",
+    name: "奇美拉",
+    respawnMinutesMin: 120,
+    respawnMinutesMax: 135,
+    needLocation: false,
+    location: ["納希沙漠：祕密通道"],
+    description: "2小時~2小時15分重生",
+    commonLoots: [],
+  },
+  奇美拉
 ];
 
 // 獲取所有掉落物列表（用於自動完成提示）
